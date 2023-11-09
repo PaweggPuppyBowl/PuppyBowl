@@ -24,7 +24,10 @@ const fetchAllPlayers = async () => {
 
 const fetchSinglePlayer = async (playerId) => {
     try {
-
+        for(let player of await fetchAllPlayers()){
+            if (player.id == playerId) return player;
+        }
+        throw err;
     } catch (err) {
         console.error(`Oh no, trouble fetching player #${playerId}!`, err);
     }
