@@ -6,6 +6,10 @@ const cohortName = '2308-acc-pt-web-pt-b';
 // Use the APIURL variable for fetch requests
 const APIURL = `https://fsa-puppy-bowl.herokuapp.com/api/${cohortName}/`;
 
+const state = [];
+const newPlayerForm = document.getElementById("new-player-form");
+const config = ["name", "breed", "status", "imageUrl", "teamId"];
+
 /**
  * It fetches all players from the API and returns them
  * @returns An array of objects.
@@ -22,20 +26,77 @@ const fetchAllPlayers = async () => {
     }
 };
 
-const fetchSinglePlayer = async (playerId) => {
-    try {
-        for(let player of await fetchAllPlayers()){
-            if (player.id == playerId) return player;
-        }
-        throw err;
-    } catch (err) {
-        console.error(`Oh no, trouble fetching player #${playerId}!`, err);
+const showDetails = async (playerId) => {
+    let div = document.querySelectorAll(`.player-${playerId} > p`)
+    div.forEach(x => {
+        x.toggleAttribute("Hidden");
+    });
+    let button = document.querySelector(`#detail-${playerId}`);
+    if (button.textContent == "See Details") {
+        button.textContent = "Hide Details";
+    } else {
+        button.textContent = "See Details";
     }
-};
+}
+
+// const fetchSinglePlayer = async (playerId) => {
+//     try {
+//         for(let player of state.players){
+//             if (player.id == playerId) {
+//                 let html = `
+//                 <p>Breed: ${player.breed}</p>
+//                 <p>${player.status}</p>
+//                 <p>${player.teamId}</p>
+//                 `;
+//                 return html;
+//             }
+//         }
+//         throw err;
+//     } catch (err) {
+//         console.error(`Oh no, trouble fetching player #${playerId}!`, err);
+//     }
+// };
+
+const formSubmitted = async () => {
+    //make playerObj
+    try {
+        let playerObj = {};
+        for (const item of config) {
+            playerObj[item] = document.getElementById(`form-${item}`).value;
+            if (!playerObj[item]) {
+                throw new Error(`${item} must be filled in.`);
+            }
+        }
+        if (playerObj.status != "field" && playerObj.status != "bench") {
+            console.log(playerObj.status);
+            throw new Error(`Status must be "field" or "bench".`);
+        }
+        if (typeof(parseInt(playerObj.teamId)) != "number") {
+            console.log(typeof(playerObj.teamId));
+            throw new Error(`TeamId must be a number.`)
+        }
+        addNewPlayer(playerObj);
+    } catch (err) {
+        console.error(err);
+    }
+}
 
 const addNewPlayer = async (playerObj) => {
     try {
-
+        const response = await fetch(
+            APIURL + "players",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(playerObj),
+            }
+        );
+        const result = await response.json();
+        console.log(result);
+        state.players = await fetchAllPlayers();
+        renderAllPlayers(state.players);
     } catch (err) {
         console.error('Oops, something went wrong with adding that player!', err);
     }
@@ -43,7 +104,14 @@ const addNewPlayer = async (playerObj) => {
 
 const removePlayer = async (playerId) => {
     try {
-
+        console.log(`Trying to remove player id ${playerId}`);
+        const response = fetch(APIURL + "players/" + playerId,
+        {method: "DELETE"}
+        );
+        const result = (await response).json();
+        console.log(result);
+        state.players = await fetchAllPlayers();
+        renderAllPlayers(state.players);
     } catch (err) {
         console.error(
             `Whoops, trouble removing player #${playerId} from the roster!`,
@@ -74,6 +142,7 @@ const removePlayer = async (playerId) => {
     */
     const renderAllPlayers = (playerList) => {
         const playersContainer = document.getElementById("all-players-container");
+        playersContainer.innerHTML = "";
         try {
             for(let player of playerList){
                 const playerDiv = document.createElement("div");
@@ -84,6 +153,11 @@ const removePlayer = async (playerId) => {
                 playerDiv.innerHTML = `
                     <h3> ${player.name} </h3>
                     <image src="${player.imageUrl}">
+                    <p Hidden>Breed: ${player.breed}</p>
+                    <p Hidden>Status: ${player.status}</p>
+                    <p Hidden>Team: ${player.teamId}</p>
+                    <button id="detail-${player.id}" onclick="showDetails(${player.id})">See Details</button>
+                    <button id="remove-${player.id}" onclick="removePlayer(${player.id})">Remove From Roster</button>
                     `;
 
                 playersContainer.appendChild(playerDiv);
@@ -100,16 +174,32 @@ const removePlayer = async (playerId) => {
  */
 const renderNewPlayerForm = () => {
     try {
-        
+
+        let form = document.createElement("form");
+
+        for (const item of config) {
+            let itemLabel = document.createElement("label");
+            let itemInput = document.createElement("input");
+            itemInput.setAttribute("id", `form-${item}`);
+            itemLabel.innerText = `${item}: `;
+            itemLabel.appendChild(itemInput);
+            form.appendChild(itemLabel);
+        }
+        let button = document.createElement("button");
+        button.setAttribute("type", "button");
+        button.addEventListener("click", formSubmitted);
+        button.innerText = "Add Player";
+        form.appendChild(button);
+        newPlayerForm.appendChild(form);
     } catch (err) {
         console.error('Uh oh, trouble rendering the new player form!', err);
     }
 }
 
 const init = async () => {
-    const players = await fetchAllPlayers();
-    console.log(JSON.stringify(players));
-    renderAllPlayers(players);
+    state.players = await fetchAllPlayers();
+    // console.log(JSON.stringify(players));
+    renderAllPlayers(state.players);
 
     renderNewPlayerForm();
 }
